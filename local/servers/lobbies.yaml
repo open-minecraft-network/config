@@ -1,0 +1,62 @@
+apiVersion: agones.dev/v1
+kind: Fleet
+metadata:
+  name: lobby-fleet
+  namespace: servers
+spec:
+  replicas: 1
+  template:
+    spec:
+      ports:
+      - name: minecraft
+        containerPort: 25565 # Internal Paper Spigot port
+        portPolicy: Dynamic  # Agones assigns a unique host port per server automatically
+        protocol: TCP
+      template:
+        spec:
+          containers:
+          - name: paper-lobbies
+            image: paper-server-base:26.2
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/sh", "-c"]
+            args:
+            - |
+              mkdir -p /minecraft/config
+              {
+                echo "proxies:"
+                echo "  velocity:"
+                echo "    enabled: true"
+                echo "    online-mode: true"
+                printf "    secret: '%s'\n" "$(cat /run/secrets/velocity/forwarding.secret)"
+              } > /minecraft/config/paper-global.yml
+              exec /minecraft/start.sh
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            volumeMounts:
+            - name: forwarding-secret
+              mountPath: /run/secrets/velocity
+              readOnly: true
+          volumes:
+          - name: forwarding-secret
+            secret:
+              secretName: proxy-forwarding-secret
+
+---
+apiVersion: autoscaling.agones.dev/v1
+kind: FleetAutoscaler
+metadata:
+  name: lobby-fleet-autoscaler #TODO: try to scale to 0 and scale up if the first player joins 
+  namespace: servers
+spec:
+  fleetName: lobby-fleet
+  policy:
+    type: Buffer
+    buffer:
+      bufferSize: 1     # Maintain at least 1 "Ready" unallocated server standing by
+      minReplicas: 1    # Minimum total instances across the fleet
+      maxReplicas: 10    # Maximum total instances across the fleet

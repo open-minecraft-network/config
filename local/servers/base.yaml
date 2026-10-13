@@ -1,0 +1,46 @@
+apiVersion: "agones.dev/v1"
+kind: Fleet
+metadata:
+  name: smp-fleet
+  namespace: servers
+spec:
+  # The number of warm servers to keep running
+  replicas: 2
+  template:
+    spec:
+      ports:
+      - name: default
+        containerPort: 25565
+      template:
+        spec:
+          containers:
+          - name: minecraft-base-image
+            image: paper-server-base:26.2
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/sh", "-c"]
+            args:
+            - |
+              mkdir -p /minecraft/config
+              {
+                echo "proxies:"
+                echo "  velocity:"
+                echo "    enabled: true"
+                echo "    online-mode: true"
+                printf "    secret: '%s'\n" "$(cat /run/secrets/velocity/forwarding.secret)"
+              } > /minecraft/config/paper-global.yml
+              exec /minecraft/start.sh
+            resources:
+              requests:
+                memory: 1Gi
+                cpu: 500m
+              limits:
+                memory: 2Gi
+                cpu: 1000m
+            volumeMounts:
+            - name: forwarding-secret
+              mountPath: /run/secrets/velocity
+              readOnly: true
+          volumes:
+          - name: forwarding-secret
+            secret:
+              secretName: proxy-forwarding-secret

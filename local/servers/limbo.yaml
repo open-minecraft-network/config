@@ -1,0 +1,73 @@
+# config/live/release/servers/limbo.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: limbo-server
+  namespace: servers
+  labels:
+    app: limbo
+spec:
+  # The HPA will manage the replicas, but this sets the initial count
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: limbo
+  template:
+    metadata:
+      labels:
+        app: limbo
+    spec:
+      containers:
+      - name: limbo
+        image: limbo:latest
+        # Crucial for local development: tells K8s to use your locally built image
+        imagePullPolicy: IfNotPresent 
+        ports:
+        - containerPort: 30000
+          name: minecraft
+        # Resources MUST be defined for the HPA to calculate percentages
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: limbo-hpa
+  namespace: servers
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: limbo-server
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        # Scales up a new pod when average CPU usage exceeds 75%
+        averageUtilization: 75
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: limbo-service
+  namespace: servers
+spec:
+  selector:
+    app: limbo
+  ports:
+  - protocol: TCP
+    port: 30000
+    targetPort: 30000
+  type: ClusterIP

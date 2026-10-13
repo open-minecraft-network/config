@@ -1,0 +1,19 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: check-image-registry-cel
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  validationActions: [Warn]
+  validations:
+    - expression: >-
+        object.spec.containers.all(c, 
+          c.image.startsWith('ghcr.io/my-org/') && 
+          !c.image.endsWith(':latest')
+        )
+      message: "Images must come from ghcr.io/my-org/ and cannot use the 'latest' tag."

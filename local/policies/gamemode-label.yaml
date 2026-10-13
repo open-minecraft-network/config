@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-gamemode-label
+  annotations:
+    policies.kyverno.io/title: Enforce Gamemode Label
+    policies.kyverno.io/description: |
+      Enforces each pod in the gamemodes namespace to have a label like gamemode-*
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: check-gamemode-label
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - server
+      validate:
+        message: "Pods in the 'gamemodes' namespace must have a 'gamemode' label starting with 'gamemode-' (e.g., gamemode-survival)."
+        pattern:
+          metadata:
+            labels:
+              gamemode: "gamemode-?*"
+# This should enforce that all pods in the gamemodes namespace have their gamemode as label
+# (each gamemode is probably going to be a gamemodes Agones Fleet deployment)
