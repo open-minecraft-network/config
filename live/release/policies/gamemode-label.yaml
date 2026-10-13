@@ -16,7 +16,7 @@ spec:
               kinds:
                 - Pod
               namespaces:
-                - gamemodes
+                - server
       validate:
         message: "Pods in the 'gamemodes' namespace must have a 'gamemode' label starting with 'gamemode-' (e.g., gamemode-survival)."
         pattern:

@@ -1,0 +1,126 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-agones-packed-scheduling
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: check-scheduling-strategy
+      match:
+        any:
+          - resources:
+              kinds:
+                - agones.dev/v1/Fleet
+                - agones.dev/v1/GameServer
+      validate:
+        message: "GameServers and Fleets must use 'Packed' scheduling for efficient cluster autoscaling."
+        pattern:
+          spec:
+            scheduling: Packed
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-minecraft-resources
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: require-container-resources
+      match:
+        any:
+          - resources:
+              kinds:
+                - agones.dev/v1/GameServer
+      validate:
+        message: "GameServers must set CPU and Memory requests/limits to protect single-threaded performance."
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: minecraft # matches your container name
+                    resources:
+                      requests:
+                        cpu: "?*"
+                        memory: "?*"
+                      limits:
+                        memory: "?*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-agones-node-tolerations
+spec:
+  rules:
+    - name: add-gameserver-node-affinity
+      match:
+        any:
+          - resources:
+              kinds:
+                - agones.dev/v1/GameServer
+                - agones.dev/v1/Fleet
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                nodeSelector:
+                  workload: minecraft-gameserver
+                tolerations:
+                  - key: "minecraft-dedicated"
+                    operator: "Equal"
+                    value: "true"
+                    effect: "NoSchedule"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-minecraft-jvm-flags
+spec:
+  rules:
+    - name: set-java-opts-env
+      match:
+        any:
+          - resources:
+              kinds:
+                - agones.dev/v1/Fleet
+      mutate:
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: minecraft
+                    env:
+                      - name: JAVA_TOOL_OPTIONS
+                        value: "-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-gameserver-security-context
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: restrict-root-and-capabilities
+      match:
+        any:
+          - resources:
+              kinds:
+                - agones.dev/v1/GameServer
+      validate:
+        message: "GameServer pods must run as non-root and drop all privileges."
+        pattern:
+          spec:
+            template:
+              spec:
+                securityContext:
+                  runAsNonRoot: true
+                  runAsUser: ">1000"
+                containers:
+                  - name: minecraft
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      capabilities:
+                        drop:
+                          - ALL

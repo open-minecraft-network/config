@@ -1,0 +1,110 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: velocity-config
+  namespace: servers
+data:
+  velocity.toml: |
+    config-version = "2.7"
+    bind = "0.0.0.0:25565"
+    motd = "&#09;Welcome to the Network"
+    
+    player-info-forwarding = "modern"
+    # Explicitly define the secret file location
+    forwarding-secret-file = "forwarding.secret"
+
+    [servers]
+    # Note: If you moved your limbo server to the 'servers' namespace, 
+    # update 'default' to 'servers' in this address:
+    limbo = "limbo-service.servers.svc.cluster.local:30000"
+    
+    try = [
+      "limbo"
+    ]
+
+    [forced-hosts]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: velocity-proxy
+  namespace: servers
+  labels:
+    app: velocity
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: velocity
+  template:
+    metadata:
+      labels:
+        app: velocity
+    spec:
+      containers:
+      - name: velocity
+        image: ghcr.io/open-minecraft-network/image-proxy:latest
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        
+        # Override the default startup to copy the config into a writable location first
+        command: ["/bin/sh", "-c"]
+        args: ["cp /tmp/config/velocity.toml /proxy/velocity.toml && /proxy/start.sh"]
+        
+        ports:
+        - containerPort: 25565
+          name: minecraft
+        volumeMounts:
+        - name: config-volume
+          # Mount the read-only ConfigMap to a temporary holding folder
+          mountPath: /tmp/config
+        - name: forwarding-secret
+          mountPath: /proxy/forwarding.secret
+          subPath: forwarding.secret
+          readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: velocity-config
+      - name: forwarding-secret
+        secret:
+          secretName: proxy-forwarding-secret
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: velocity-service
+  namespace: servers
+spec:
+  type: LoadBalancer 
+  selector:
+    app: velocity
+  ports:
+  - protocol: TCP
+    port: 25565
+    targetPort: 25565
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: velocity-proxy-pvc
+spec:
+  resources:
+    requests:
+      storage: 5G
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce

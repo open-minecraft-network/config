@@ -18,6 +18,10 @@ spec:
           - name: paper-lobbies
             image: paper-server-base:26.2
             imagePullPolicy: IfNotPresent
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 10001
+              runAsGroup: 10001
             command: ["/bin/sh", "-c"]
             args:
             - |

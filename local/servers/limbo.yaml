@@ -23,6 +23,10 @@ spec:
         image: limbo:latest
         # Crucial for local development: tells K8s to use your locally built image
         imagePullPolicy: IfNotPresent 
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
         ports:
         - containerPort: 30000
           name: minecraft
