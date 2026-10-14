@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agones
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://agones.dev/chart/stable
+    targetRevision: 1.61.0
+    chart: agones
+    helm:
+      values: |
+        agones:
+          ping:
+            install: true
+          metrics:
+            prometheusServiceDiscovery: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: agones-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -15,8 +15,8 @@ spec:
         spec:
           containers:
           - name: minecraft-base-image
-            image: paper-server-base:26.2
-            imagePullPolicy: IfNotPresent
+            image: ghcr.io/open-minecraft-network/image-base:latest
+            imagePullPolicy: Always
             securityContext:
               runAsNonRoot: true
               runAsUser: 10001

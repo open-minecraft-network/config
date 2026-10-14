@@ -44,8 +44,8 @@ spec:
     spec:
       containers:
       - name: velocity
-        image: velocity-proxy:latest
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/open-minecraft-network/image-proxy:latest
+        imagePullPolicy: Always
         securityContext:
           runAsNonRoot: true
           runAsUser: 10001
