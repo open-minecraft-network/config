@@ -15,7 +15,7 @@ spec:
         spec:
           containers:
           - name: minecraft-base-image
-            image: ghcr.io/open-minecraft-network/image-base:sha-947c431
+            image: ghcr.io/open-minecraft-network/image-base:sha-0935d72
             imagePullPolicy: Always
             securityContext:
               runAsNonRoot: true
