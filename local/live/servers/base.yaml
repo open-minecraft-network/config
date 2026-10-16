@@ -11,11 +11,18 @@ spec:
       ports:
       - name: default
         containerPort: 25565
+      health:
+        initialDelaySeconds: 60
+        periodSeconds: 2
+        failureThreshold: 10
       template:
+        metadata:
+          labels:
+            app: base
         spec:
           containers:
           - name: minecraft-base-image
-            image: ghcr.io/open-minecraft-network/image-base:sha-0935d72
+            image: ghcr.io/open-minecraft-network/image-base:latest
             imagePullPolicy: Always
             securityContext:
               runAsNonRoot: true
@@ -32,6 +39,9 @@ spec:
                 echo "    online-mode: true"
                 printf "    secret: '%s'\n" "$(cat /run/secrets/velocity/forwarding.secret)"
               } > /minecraft/config/paper-global.yml
+              cp /tmp/server-config/server.properties /minecraft/server.properties
+              mkdir -p /minecraft/plugins/voicechat
+              cp /tmp/voicechat-config/voicechat-server.properties /minecraft/plugins/voicechat/voicechat-server.properties
               exec /minecraft/start.sh
             resources:
               requests:
@@ -44,7 +54,48 @@ spec:
             - name: forwarding-secret
               mountPath: /run/secrets/velocity
               readOnly: true
+            - name: server-properties
+              mountPath: /tmp/server-config
+              readOnly: true
+            - name: voicechat-config
+              mountPath: /tmp/voicechat-config
+              readOnly: true
           volumes:
           - name: forwarding-secret
             secret:
               secretName: proxy-forwarding-secret
+          - name: server-properties
+            configMap:
+              name: minecraft-server-properties
+          - name: voicechat-config
+            configMap:
+              name: simple-voicechat-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: base-service
+  namespace: servers
+spec:
+  selector:
+    app: base
+  ports:
+  - protocol: TCP
+    port: 30000
+    targetPort: 25565
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: base-voicechat-service
+  namespace: servers
+spec:
+  selector:
+    app: base
+  ports:
+  - name: voicechat
+    protocol: UDP
+    port: 24454
+    targetPort: 24454
+  type: LoadBalancer

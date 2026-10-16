@@ -48,3 +48,17 @@ spec:
           - name: forwarding-secret
             secret:
               secretName: proxy-forwarding-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: base-service
+  namespace: servers
+spec:
+  selector:
+    agones.dev/fleet: base-fleet
+  ports:
+  - protocol: TCP
+    port: 30000
+    targetPort: 25565
+  type: ClusterIP

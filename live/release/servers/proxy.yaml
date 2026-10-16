@@ -18,8 +18,10 @@ data:
     # Note: If you moved your limbo server to the 'servers' namespace, 
     # update 'default' to 'servers' in this address:
     limbo = "limbo-service.servers.svc.cluster.local:30000"
+    base = "base-service.servers.svc.cluster.local:30000"
     
     try = [
+      "base",
       "limbo"
     ]
 

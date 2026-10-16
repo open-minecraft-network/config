@@ -1,0 +1,7 @@
+# Where to put the config file? https://luckperms.net/wiki/Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: luckperms-config
+data:
+  amongus: sus

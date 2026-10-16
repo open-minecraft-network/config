@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minecraft-server-properties
+  namespace: servers
+data:
+  server.properties: |
+    online-mode=false
+    server-port=25565
+    server-ip=
+    motd=OMCN Base
+    difficulty=normal
+    gamemode=survival
+    enforce-secure-profile=false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: simple-voicechat-config
+  namespace: servers
+data:
+  voicechat-server.properties: |
+    port=24454
+    bind_address=
+    voice_host=
