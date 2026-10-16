@@ -15,70 +15,99 @@ create-forwarding-secret:
 		--from-literal=forwarding.secret="$$(openssl rand -hex 32)" \
 		--dry-run=client -o yaml | kubectl apply -f -
 
+.PHONY: setup-helm-repos
+setup-helm-repos:
+	helm repo add kyverno https://kyverno.github.io/kyverno/
+	helm repo add agones https://agones.dev/chart/stable
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo add cnpg https://cloudnative-pg.github.io/charts
+	helm repo update
+
+.PHONY: install-obs
+install-obs: setup-helm-repos
+	helm upgrade --install \
+		--namespace observability \
+		--create-namespace \
+		-f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/main/docs/src/samples/monitoring/kube-stack-config.yaml \
+		prometheus-community \
+		prometheus-community/kube-prometheus-stack
+
+.PHONY: install-cnpg-operator
+install-cnpg-operator: setup-helm-repos
+	helm upgrade --install cnpg-operator \
+		--namespace cnpg-system \
+		--create-namespace \
+		cnpg/cloudnative-pg
+	@echo "Waiting for CloudNativePG CRDs and operator rollout..."
+	kubectl wait --for=condition=Established crd/clusters.postgresql.cnpg.io --timeout=60s
+	kubectl rollout status deployment -n cnpg-system -l app.kubernetes.io/name=cloudnative-pg --timeout=180s
+
+.PHONY: install-cnpg
+install-cnpg: install-cnpg-operator
+	helm upgrade --install cnpg \
+		--namespace cnpg-database \
+		--create-namespace \
+		cnpg/cluster
+
 .PHONY: install-local-argocd
 install-local-argocd: ensure-namespaces
 	kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-	@echo "Waiting for ArgoCD server to be ready..."
-	kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=90s
+	@echo "Waiting for ArgoCD server deployment rollout..."
+	kubectl rollout status deployment/argocd-server -n argocd --timeout=300s
 
 .PHONY: uninstall-local-argocd
 uninstall-local-argocd:
 	kubectl delete -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-.PHONY: setup-helm-repos
-setup-helm-repos:
-	helm repo add kyverno https://kyverno.github.io/kyverno/
-	helm repo add agones https://agones.dev/chart/stable
-	helm repo update
-
 .PHONY: install-kyverno
 install-kyverno: setup-helm-repos
-	@echo Installing Kyverno
+	@echo "Installing Kyverno..."
 	helm upgrade --install kyverno kyverno/kyverno \
 		--namespace kyverno-system \
 		--create-namespace \
-		--timeout 10m
-	@echo Applying Kubernetes Pod Security Standarts
+		--timeout 5m
+	kubectl rollout status deployment/kyverno-admission-controller -n kyverno-system --timeout=180s
+	@echo "Applying Kubernetes Pod Security Standards..."
 	helm upgrade --install kyverno-policies kyverno/kyverno-policies -n kyverno-system
 
 .PHONY: uninstall-kyverno
 uninstall-kyverno:
-	@echo Uninstalling Kyverno Policies
+	@echo "Uninstalling Kyverno Policies..."
 	helm uninstall kyverno-policies -n kyverno-system || true
-	@echo Uninstalling Kyverno
+	@echo "Uninstalling Kyverno..."
 	helm uninstall kyverno -n kyverno-system || true
-	@echo Cleaning up lingering Kyverno webhooks
+	@echo "Cleaning up lingering Kyverno webhooks..."
 	kubectl delete validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --ignore-not-found=true
 	kubectl delete mutatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --ignore-not-found=true
-	@echo Deleting Kyverno namespaces
-	kubectl delete namespace kyverno kyverno-system || true
-	
+	@echo "Deleting Kyverno namespaces..."
+	kubectl delete namespace kyverno kyverno-system --ignore-not-found=true
+
 .PHONY: install-agones
 install-agones: setup-helm-repos ensure-namespaces
 	helm upgrade --install agones agones/agones \
 		--namespace agones-system \
 		--create-namespace \
-		-f config/local/agones/values.yaml
+		-f live/agones/values.yaml
 
-.PHONY: unistall-agones
-uninstall-agones:
-	@echo Uninstalling Agones
+.PHONY: uninstall-agones
+uninstall-agones: 
+	@echo "Uninstalling Agones..."
 	helm uninstall agones -n agones-system || true
-	@echo Deleting Agones namespace
-	kubectl delete namespace agones-system || true
+	@echo "Deleting Agones namespace..."
+	kubectl delete namespace agones-system --ignore-not-found=true
 
 .PHONY: init-local
-init-local: ensure-namespaces create-forwarding-secret install-local-argocd setup-helm-repos install-kyverno install-agones
+init-local: ensure-namespaces create-forwarding-secret setup-helm-repos install-obs install-cnpg install-local-argocd install-kyverno install-agones
 	@echo "\n========================================"
 	@echo "INITIALIZATION COMPLETED!"
 	@echo "ArgoCD initial password:"
-	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d || echo "Password secret pending, check again in a few seconds."
 	@echo "\n\nNext steps:"
 	@echo "1. Run 'make port-forward' in a separate terminal."
 	@echo "2. Run 'argocd login localhost:8080' in this terminal."
 	@echo "3. Run 'make watch-local' to start developing."
 	@echo "========================================\n"
-	
+
 .PHONY: sync-local
 sync-local:
 	@echo "Syncing local directory $(MANIFEST_DIR) to ArgoCD app $(APP_NAME)..."
