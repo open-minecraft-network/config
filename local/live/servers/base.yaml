@@ -44,6 +44,8 @@ spec:
               cp /tmp/server-config/server.properties /minecraft/server.properties
               mkdir -p /minecraft/plugins/voicechat
               cp /tmp/voicechat-config/voicechat-server.properties /minecraft/plugins/voicechat/voicechat-server.properties
+              mkdir -p /minecraft/plugins/LuckPerms
+              cp /tmp/luckperms-config/config.yml /minecraft/plugins/LuckPerms/config.yml
               exec /minecraft/start.sh
             resources:
               requests:
@@ -63,8 +65,7 @@ spec:
               mountPath: /tmp/voicechat-config
               readOnly: true
             - name: luckperms-config
-              mountPath: /minecraft/plugins/LuckPerms/config.yml
-              subPath: config.yml
+              mountPath: /tmp/luckperms-config
               readOnly: true
           volumes:
           - name: forwarding-secret
