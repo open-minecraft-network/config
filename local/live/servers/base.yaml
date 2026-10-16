@@ -24,6 +24,8 @@ spec:
           - name: minecraft-base-image
             image: ghcr.io/open-minecraft-network/image-base:latest
             imagePullPolicy: Always
+            stdin: true
+            tty: true
             securityContext:
               runAsNonRoot: true
               runAsUser: 10001
@@ -60,6 +62,10 @@ spec:
             - name: voicechat-config
               mountPath: /tmp/voicechat-config
               readOnly: true
+            - name: luckperms-config
+              mountPath: /minecraft/plugins/LuckPerms/config.yml
+              subPath: config.yml
+              readOnly: true
           volumes:
           - name: forwarding-secret
             secret:
@@ -70,6 +76,9 @@ spec:
           - name: voicechat-config
             configMap:
               name: simple-voicechat-config
+          - name: luckperms-config
+            configMap:
+              name: luckperms-config
 ---
 apiVersion: v1
 kind: Service

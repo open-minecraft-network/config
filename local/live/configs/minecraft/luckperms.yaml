@@ -1,7 +1,15 @@
-# Where to put the config file? https://luckperms.net/wiki/Configuration
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: luckperms-config
+  namespace: servers
 data:
-  amongus: sus
+  config.yml: |
+    storage-method: postgresql
+
+    data:
+      address: postgres.servers.svc.cluster.local:5432
+      database: luckperms
+      username: luckperms
+      password: luckperms

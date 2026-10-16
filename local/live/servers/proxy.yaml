@@ -72,6 +72,10 @@ spec:
           mountPath: /proxy/forwarding.secret
           subPath: forwarding.secret
           readOnly: true
+        - name: luckperms-config
+          mountPath: /proxy/plugins/LuckPerms/config.yml
+          subPath: config.yml
+          readOnly: true
       volumes:
       - name: config-volume
         configMap:
@@ -79,6 +83,9 @@ spec:
       - name: forwarding-secret
         secret:
           secretName: proxy-forwarding-secret
+      - name: luckperms-config
+        configMap:
+          name: luckperms-config
 
 ---
 apiVersion: v1
