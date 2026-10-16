@@ -101,6 +101,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: velocity-proxy-pvc
+  namespace: servers
 spec:
   resources:
     requests:
