@@ -1,5 +1,3 @@
-# config/live/release/servers/limbo.yaml
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
